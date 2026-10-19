@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:gravity="center_horizontal">
+
+        <TextView
+            android:id="@+id/msg"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/hint"
+            android:layout_marginBottom="8dp"
+            android:text="Enter your TV's IP address" />
+
+        <!-- ===== Connect / pairing section ===== -->
+        <LinearLayout
+            android:id="@+id/connectSection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_horizontal">
+
+            <EditText
+                android:id="@+id/hostInput"
+                android:layout_width="240dp"
+                android:layout_height="wrap_content"
+                android:hint="192.168.1.50"
+                android:textColor="@color/text"
+                android:textColorHint="@color/hint"
+                android:inputType="text"
+                android:gravity="center" />
+
+            <Button
+                android:id="@+id/connectBtn"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Connect" />
+
+            <LinearLayout
+                android:id="@+id/pairSection"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center_horizontal"
+                android:visibility="gone"
+                android:layout_marginTop="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/text"
+                    android:text="Enter the code shown on the TV" />
+
+                <EditText
+                    android:id="@+id/codeInput"
+                    android:layout_width="140dp"
+                    android:layout_height="wrap_content"
+                    android:maxLength="6"
+                    android:textColor="@color/text"
+                    android:gravity="center"
+                    android:layout_marginTop="4dp" />
+
+                <Button
+                    android:id="@+id/pairBtn"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Pair" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- ===== Remote controls ===== -->
+        <LinearLayout
+            android:id="@+id/remoteSection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:visibility="gone">
+
+            <Button
+                android:id="@+id/modeBtn"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:backgroundTint="@color/toggle_off"
+                android:textColor="@color/text"
+                android:text="Mode: Native keyboard" />
+
+            <Button
+                android:id="@+id/padBtn"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:backgroundTint="@color/toggle_off"
+                android:textColor="@color/text"
+                android:text="Pad: D-pad" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp">
+
+                <Button android:id="@+id/powerBtn" style="@style/RoundButton" android:text="⏻" />
+                <Button android:id="@+id/homeBtn" style="@style/RoundButton" android:text="Home" />
+                <Button android:id="@+id/backBtn" style="@style/RoundButton" android:text="Back" />
+            </LinearLayout>
+
+            <!-- D-pad (arrows) -->
+            <LinearLayout
+                android:id="@+id/dpadArrows"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center_horizontal"
+                android:layout_marginTop="8dp">
+
+                <Button android:id="@+id/upBtn" style="@style/DpadButton" android:text="▲" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <Button android:id="@+id/leftBtn" style="@style/DpadButton" android:text="◀" />
+                    <Button
+                        android:id="@+id/okBtn"
+                        style="@style/DpadButton"
+                        android:backgroundTint="@color/ok_btn"
+                        android:text="OK" />
+                    <Button android:id="@+id/rightBtn" style="@style/DpadButton" android:text="▶" />
+                </LinearLayout>
+
+                <Button android:id="@+id/downBtn" style="@style/DpadButton" android:text="▼" />
+            </LinearLayout>
+
+            <!-- Gesture pad -->
+            <View
+                android:id="@+id/gesturePad"
+                android:layout_width="450dp"
+                android:layout_height="450dp"
+                android:background="@color/gesture_pad"
+                android:layout_marginTop="8dp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/gestureHint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Swipe to move · tap = OK · hold = submenu"
+                android:textColor="@color/hint"
+                android:textSize="12sp"
+                android:visibility="gone"
+                android:layout_marginTop="4dp" />
+
+            <!-- Text entry (raw send_text trick, no auto-clearing) -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="12dp">
+
+                <EditText
+                    android:id="@+id/txt"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="Type, then tap Send"
+                    android:textColor="@color/text"
+                    android:textColorHint="@color/hint"
+                    android:inputType="text" />
+
+                <Button android:id="@+id/sendBtn" style="@style/SmallButton" android:text="Send" />
+                <Button android:id="@+id/delBtn" style="@style/SmallButton" android:text="⌫" />
+                <Button android:id="@+id/clearBtn" style="@style/SmallButton" android:text="Clear" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp">
+
+                <Button android:id="@+id/volDownBtn" style="@style/RoundButton" android:text="Vol −" />
+                <Button android:id="@+id/muteBtn" style="@style/RoundButton" android:text="Mute" />
+                <Button android:id="@+id/volUpBtn" style="@style/RoundButton" android:text="Vol +" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <Button android:id="@+id/rewindBtn" style="@style/RoundButton" android:text="⏪" />
+                <Button android:id="@+id/playPauseBtn" style="@style/RoundButton" android:text="⏯" />
+                <Button android:id="@+id/forwardBtn" style="@style/RoundButton" android:text="⏩" />
+            </LinearLayout>
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>
