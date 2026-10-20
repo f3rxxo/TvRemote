@@ -172,9 +172,24 @@ class MainActivity : AppCompatActivity() {
                 // Connection reset right after the handshake: same unpaired case.
                 startPairingFlow()
             } catch (e: Exception) {
-                msg.text = "Connection failed: ${e.message}"
+                // protobuf's parseDelimitedFrom wraps TLS read errors in an
+                // InvalidProtocolBufferException, so look through the cause chain.
+                if (looksUnpaired(e)) startPairingFlow()
+                else msg.text = "Connection failed: ${e.message}"
             }
         }
+    }
+
+    private fun looksUnpaired(e: Throwable): Boolean {
+        var t: Throwable? = e
+        while (t != null) {
+            if (t is SSLException || t is SocketException) return true
+            val m = t.message ?: ""
+            if (m.contains("CERTIFICATE_UNKNOWN") || m.contains("certificate_unknown") ||
+                m.contains("SSL")) return true
+            t = t.cause
+        }
+        return false
     }
 
     private fun startPairingFlow() {
