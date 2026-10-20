@@ -36,6 +36,14 @@ android {
         jvmTarget = "17"
     }
 
+    buildFeatures {
+        compose = true
+    }
+    composeOptions {
+        // Matches Kotlin 1.9.24.
+        kotlinCompilerExtensionVersion = "1.5.14"
+    }
+
     // The three BouncyCastle jars each ship the same META-INF files, which
     // makes mergeDebugJavaResource fail with "N files found with path".
     packaging {
@@ -72,11 +80,17 @@ protobuf {
 
 dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.appcompat:appcompat:1.7.0")
-    implementation("com.google.android.material:material:1.12.0")
-    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
+
+    // Jetpack Compose + Material 3
+    implementation(platform("androidx.compose:compose-bom:2024.06.00"))
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-graphics")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-core")
+    implementation("androidx.activity:activity-compose:1.9.1")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.4")
 
     // Wire format only, no android.util/android.os deps - keeps codegen simple.
     implementation("com.google.protobuf:protobuf-javalite:3.25.3")

@@ -31,6 +31,8 @@ import java.math.BigInteger
 import java.security.KeyStore
 import java.security.MessageDigest
 import java.security.cert.X509Certificate
+import java.net.InetSocketAddress
+import java.net.Socket
 import java.security.interfaces.RSAPublicKey
 import javax.net.ssl.SSLSocket
 
@@ -48,6 +50,10 @@ class TvConnection(private val keyStore: KeyStore) {
         private const val PAIR_PORT = 6467
         private const val REMOTE_PORT = 6466
         private const val CLIENT_NAME = "Kiko Remote"
+        private const val CONNECT_TIMEOUT_MS = 5000
+        private const val HANDSHAKE_TIMEOUT_MS = 8000
+        // The TV pings regularly and we answer; silence this long means the link is dead.
+        private const val IDLE_TIMEOUT_MS = 40000
 
         // Feature bitmask values, matching remote.py's Feature IntFlag.
         private const val FEATURE_PING = 1 shl 0
@@ -72,6 +78,23 @@ class TvConnection(private val keyStore: KeyStore) {
     @Volatile var connected: Boolean = false
         private set
 
+    /** Called (from a background thread) when an established connection drops. */
+    @Volatile var onDisconnected: (() -> Unit)? = null
+
+    // Bumped on every connect/disconnect so a stale reader can't clobber a newer connection.
+    @Volatile private var generation = 0
+
+    private fun openSocket(host: String, port: Int): SSLSocket {
+        val plain = Socket()
+        try {
+            plain.connect(InetSocketAddress(host, port), CONNECT_TIMEOUT_MS)
+            return sslContext.socketFactory.createSocket(plain, host, port, true) as SSLSocket
+        } catch (e: Exception) {
+            try { plain.close() } catch (_: Exception) {}
+            throw e
+        }
+    }
+
     // ---------- Pairing (port 6467) ----------
 
     /**
@@ -80,7 +103,7 @@ class TvConnection(private val keyStore: KeyStore) {
      * Keeps the socket open - call [finishPairing] with the code next.
      */
     suspend fun startPairing(host: String): PairingSession = withContext(Dispatchers.IO) {
-        val socket = sslContext.socketFactory.createSocket(host, PAIR_PORT) as SSLSocket
+        val socket = openSocket(host, PAIR_PORT)
         socket.startHandshake()
         val out = socket.outputStream
         val input = socket.inputStream
@@ -204,48 +227,57 @@ class TvConnection(private val keyStore: KeyStore) {
      * client cert) or the TV doesn't respond in time.
      */
     suspend fun connect(host: String, enableIme: Boolean): Unit = withContext(Dispatchers.IO) {
-        val socket = sslContext.socketFactory.createSocket(host, REMOTE_PORT) as SSLSocket
-        socket.startHandshake()
-        remoteSocket = socket
-        remoteOut = socket.outputStream
-        val input = socket.inputStream
+        disconnect()
+        val gen = ++generation
+        val socket = openSocket(host, REMOTE_PORT)
+        try {
+            socket.soTimeout = HANDSHAKE_TIMEOUT_MS
+            socket.startHandshake()
+            remoteSocket = socket
+            remoteOut = socket.outputStream
+            val input = socket.inputStream
 
-        var activeFeatures = FEATURE_PING or FEATURE_KEY or FEATURE_POWER or FEATURE_VOLUME or FEATURE_APP_LINK or
-            (if (enableIme) FEATURE_IME else 0)
+            var activeFeatures = FEATURE_PING or FEATURE_KEY or FEATURE_POWER or FEATURE_VOLUME or FEATURE_APP_LINK or
+                (if (enableIme) FEATURE_IME else 0)
 
-        var msg = RemoteMessage.parseDelimitedFrom(input) ?: throw NotConnected("Connection closed by TV")
-        if (!msg.hasRemoteConfigure()) throw NotConnected("Unexpected first message: $msg")
-        activeFeatures = activeFeatures and msg.remoteConfigure.code1
-        sendRemoteBlocking(
-            RemoteMessage.newBuilder().setRemoteConfigure(
-                RemoteConfigure.newBuilder()
-                    .setCode1(activeFeatures)
-                    .setDeviceInfo(
-                        RemoteDeviceInfo.newBuilder()
-                            .setUnknown1(1)
-                            .setUnknown2("1")
-                            .setPackageName("atvremote")
-                            .setAppVersion("1.0.0"),
-                    ),
-            ).build(),
-        )
+            var msg = RemoteMessage.parseDelimitedFrom(input) ?: throw NotConnected("Connection closed by TV")
+            if (!msg.hasRemoteConfigure()) throw NotConnected("Unexpected first message: $msg")
+            activeFeatures = activeFeatures and msg.remoteConfigure.code1
+            sendRemoteBlocking(
+                RemoteMessage.newBuilder().setRemoteConfigure(
+                    RemoteConfigure.newBuilder()
+                        .setCode1(activeFeatures)
+                        .setDeviceInfo(
+                            RemoteDeviceInfo.newBuilder()
+                                .setUnknown1(1)
+                                .setUnknown2("1")
+                                .setPackageName("atvremote")
+                                .setAppVersion("1.0.0"),
+                        ),
+                ).build(),
+            )
 
-        msg = RemoteMessage.parseDelimitedFrom(input) ?: throw NotConnected("Connection closed by TV")
-        if (!msg.hasRemoteSetActive()) throw NotConnected("Unexpected message: $msg")
-        sendRemoteBlocking(
-            RemoteMessage.newBuilder()
-                .setRemoteSetActive(RemoteSetActive.newBuilder().setActive(activeFeatures))
-                .build(),
-        )
+            msg = RemoteMessage.parseDelimitedFrom(input) ?: throw NotConnected("Connection closed by TV")
+            if (!msg.hasRemoteSetActive()) throw NotConnected("Unexpected message: $msg")
+            sendRemoteBlocking(
+                RemoteMessage.newBuilder()
+                    .setRemoteSetActive(RemoteSetActive.newBuilder().setActive(activeFeatures))
+                    .build(),
+            )
 
-        msg = RemoteMessage.parseDelimitedFrom(input) ?: throw NotConnected("Connection closed by TV")
-        if (!msg.hasRemoteStart()) throw NotConnected("Unexpected message: $msg")
+            msg = RemoteMessage.parseDelimitedFrom(input) ?: throw NotConnected("Connection closed by TV")
+            if (!msg.hasRemoteStart()) throw NotConnected("Unexpected message: $msg")
 
-        connected = true
-        readerJob = CoroutineScope(Dispatchers.IO).launch { readLoop(input) }
+            socket.soTimeout = IDLE_TIMEOUT_MS
+            connected = true
+            readerJob = CoroutineScope(Dispatchers.IO).launch { readLoop(gen, input) }
+        } catch (e: Exception) {
+            disconnect()
+            throw e
+        }
     }
 
-    private suspend fun readLoop(input: InputStream) {
+    private suspend fun readLoop(gen: Int, input: InputStream) {
         try {
             while (true) {
                 val msg = RemoteMessage.parseDelimitedFrom(input) ?: break
@@ -263,9 +295,12 @@ class TvConnection(private val keyStore: KeyStore) {
                 }
             }
         } catch (_: Exception) {
-            // Socket closed or TV went away; connected flag below reflects it.
+            // Socket closed, timed out, or TV went away.
         } finally {
-            connected = false
+            if (gen == generation) {
+                connected = false
+                onDisconnected?.invoke()
+            }
         }
     }
 
@@ -276,7 +311,7 @@ class TvConnection(private val keyStore: KeyStore) {
     }
 
     private suspend fun sendRemote(msg: RemoteMessage) {
-        val out = remoteOut ?: return
+        val out = remoteOut ?: throw NotConnected("Not connected")
         writeMutex.withLock {
             withContext(Dispatchers.IO) {
                 msg.writeDelimitedTo(out)
@@ -313,6 +348,7 @@ class TvConnection(private val keyStore: KeyStore) {
     }
 
     fun disconnect() {
+        generation++
         readerJob?.cancel()
         readerJob = null
         connected = false
