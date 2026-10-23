@@ -257,16 +257,14 @@ class TvConnection(private val keyStore: KeyStore) {
                 ).build(),
             )
 
-            msg = RemoteMessage.parseDelimitedFrom(input) ?: throw NotConnected("Connection closed by TV")
-            if (!msg.hasRemoteSetActive()) throw NotConnected("Unexpected message: $msg")
+            msg = awaitHandshakeMessage(input) { it.hasRemoteSetActive() }
             sendRemoteBlocking(
                 RemoteMessage.newBuilder()
                     .setRemoteSetActive(RemoteSetActive.newBuilder().setActive(activeFeatures))
                     .build(),
             )
 
-            msg = RemoteMessage.parseDelimitedFrom(input) ?: throw NotConnected("Connection closed by TV")
-            if (!msg.hasRemoteStart()) throw NotConnected("Unexpected message: $msg")
+            msg = awaitHandshakeMessage(input) { it.hasRemoteStart() }
 
             socket.soTimeout = IDLE_TIMEOUT_MS
             connected = true
@@ -275,6 +273,25 @@ class TvConnection(private val keyStore: KeyStore) {
             disconnect()
             throw e
         }
+    }
+
+    /**
+     * Reads until [wanted] matches. The TV may interleave other messages during
+     * the handshake (volume level, pings, ...); those are skipped, pings answered.
+     */
+    private fun awaitHandshakeMessage(input: InputStream, wanted: (RemoteMessage) -> Boolean): RemoteMessage {
+        repeat(20) {
+            val m = RemoteMessage.parseDelimitedFrom(input) ?: throw NotConnected("Connection closed by TV")
+            if (wanted(m)) return m
+            if (m.hasRemotePingRequest()) {
+                sendRemoteBlocking(
+                    RemoteMessage.newBuilder().setRemotePingResponse(
+                        RemotePingResponse.newBuilder().setVal1(m.remotePingRequest.val1),
+                    ).build(),
+                )
+            }
+        }
+        throw NotConnected("TV did not complete the handshake")
     }
 
     private suspend fun readLoop(gen: Int, input: InputStream) {
