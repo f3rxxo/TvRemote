@@ -1,5 +1,6 @@
 package com.kiko.tvremote
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -211,6 +212,7 @@ private fun PairScreen(st: UiState, vm: TvViewModel) {
 @Composable
 private fun RemoteScreen(st: UiState, vm: TvViewModel) {
     var text by rememberSaveable { mutableStateOf("") }
+    var showKeyboard by rememberSaveable { mutableStateOf(false) }
     val cs = MaterialTheme.colorScheme
 
     Column(
@@ -266,15 +268,8 @@ private fun RemoteScreen(st: UiState, vm: TvViewModel) {
             )
         }
 
-        // Power / Back / Home
+        // Back / Home / Keyboard
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            PressKey(
-                Modifier
-                    .weight(1f)
-                    .height(56.dp),
-                container = cs.errorContainer,
-                onPress = { vm.key("POWER") },
-            ) { Text("Power", fontWeight = FontWeight.Medium) }
             PressKey(
                 Modifier
                     .weight(1f)
@@ -287,49 +282,55 @@ private fun RemoteScreen(st: UiState, vm: TvViewModel) {
                     .height(56.dp),
                 onPress = { vm.key("HOME") },
             ) { IconOnly(Icons.Filled.Home) }
+            PressKey(
+                Modifier
+                    .weight(1f)
+                    .height(56.dp),
+                container = if (showKeyboard) cs.primaryContainer else null,
+                onPress = { showKeyboard = !showKeyboard },
+            ) { Text("⌨", fontSize = 26.sp) }
+        }
+
+        // Text input, only while the keyboard button has it open
+        AnimatedVisibility(visible = showKeyboard) {
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = cs.surfaceVariant),
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = text,
+                        onValueChange = { text = it },
+                        label = { Text("Text to send to TV") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Button(onClick = { vm.sendText(text) }, modifier = Modifier.weight(1f)) { Text("Send") }
+                        FilledTonalButton(onClick = { vm.key("ENTER") }) { Text("Enter") }
+                        FilledTonalButton(onClick = vm::clearText) { Text("Clear") }
+                        PressKey(Modifier.size(width = 56.dp, height = 40.dp), repeat = true, onPress = { vm.key("DEL") }) { Text("⌫") }
+                    }
+                    TextButton(onClick = { showKeyboard = false }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Hide")
+                    }
+                }
+            }
         }
 
         // Navigation area
         if (st.gestureMode) {
-            GesturePad(vm, Modifier.fillMaxWidth().height(380.dp))
+            GesturePad(vm, Modifier.fillMaxWidth().height(if (showKeyboard) 300.dp else 440.dp))
         } else {
             DPad(vm)
         }
 
-        // Media
+        // Play/pause + volume (press immediately, hold to repeat)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            PressKey(Modifier.weight(1f).height(56.dp), onPress = { vm.key("MEDIA_REWIND") }) { Text("⏪", fontSize = 22.sp) }
-            PressKey(Modifier.weight(1f).height(56.dp), onPress = { vm.key("MEDIA_PLAY_PAUSE") }) { Text("⏯", fontSize = 22.sp) }
-            PressKey(Modifier.weight(1f).height(56.dp), onPress = { vm.key("MEDIA_FAST_FORWARD") }) { Text("⏩", fontSize = 22.sp) }
+            PressKey(Modifier.weight(1f).height(64.dp), repeat = true, onPress = { vm.key("VOLUME_DOWN") }) { Text("Vol −", fontWeight = FontWeight.Medium) }
+            PressKey(Modifier.weight(1f).height(64.dp), onPress = { vm.key("VOLUME_MUTE") }) { Text("Mute", fontWeight = FontWeight.Medium) }
+            PressKey(Modifier.weight(1f).height(64.dp), repeat = true, onPress = { vm.key("VOLUME_UP") }) { Text("Vol +", fontWeight = FontWeight.Medium) }
         }
-
-        // Volume (press immediately, hold to repeat)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            PressKey(Modifier.weight(1f).height(56.dp), repeat = true, onPress = { vm.key("VOLUME_DOWN") }) { Text("Vol −", fontWeight = FontWeight.Medium) }
-            PressKey(Modifier.weight(1f).height(56.dp), onPress = { vm.key("VOLUME_MUTE") }) { Text("Mute", fontWeight = FontWeight.Medium) }
-            PressKey(Modifier.weight(1f).height(56.dp), repeat = true, onPress = { vm.key("VOLUME_UP") }) { Text("Vol +", fontWeight = FontWeight.Medium) }
-        }
-
-        // Text input
-        Card(
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = cs.surfaceVariant),
-        ) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = text,
-                    onValueChange = { text = it },
-                    label = { Text("Text to send to TV") },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Button(onClick = { vm.sendText(text) }, modifier = Modifier.weight(1f)) { Text("Send") }
-                    FilledTonalButton(onClick = { vm.key("ENTER") }) { Text("Enter") }
-                    FilledTonalButton(onClick = vm::clearText) { Text("Clear") }
-                    PressKey(Modifier.size(width = 56.dp, height = 40.dp), repeat = true, onPress = { vm.key("DEL") }) { Text("⌫") }
-                }
-            }
-        }
+        PressKey(Modifier.fillMaxWidth().height(64.dp), onPress = { vm.key("MEDIA_PLAY_PAUSE") }) { Text("⏯", fontSize = 26.sp) }
 
         Text(
             st.message,
