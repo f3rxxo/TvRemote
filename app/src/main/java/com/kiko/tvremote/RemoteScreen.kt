@@ -328,9 +328,9 @@ private fun RemoteScreen(st: UiState, vm: TvViewModel) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             // Tap = one step; hold = the TV's own key repeat (START_LONG/END_LONG),
             // which it handles far more reliably than a stream of separate presses.
-            HoldKey(Modifier.weight(1f).height(64.dp), "VOLUME_DOWN", vm) { Text("Vol −", fontWeight = FontWeight.Medium) }
+            VolumeKey(Modifier.weight(1f).height(64.dp), "VOLUME_DOWN", vm) { Text("Vol −", fontWeight = FontWeight.Medium) }
             PressKey(Modifier.weight(1f).height(64.dp), onPress = { vm.key("VOLUME_MUTE") }) { Text("Mute", fontWeight = FontWeight.Medium) }
-            HoldKey(Modifier.weight(1f).height(64.dp), "VOLUME_UP", vm) { Text("Vol +", fontWeight = FontWeight.Medium) }
+            VolumeKey(Modifier.weight(1f).height(64.dp), "VOLUME_UP", vm) { Text("Vol +", fontWeight = FontWeight.Medium) }
         }
         PressKey(Modifier.fillMaxWidth().height(64.dp), onPress = { vm.key("MEDIA_PLAY_PAUSE") }) { Text("⏯", fontSize = 26.sp) }
 
@@ -442,6 +442,35 @@ private fun PressKey(
         }
     }
     KeySurface(modifier, pressed, container, gesture, content)
+}
+
+/**
+ * Volume key. This TV answers a held key reliably but drops or delays quick
+ * single presses, so every touch is sent as a hold: down starts it, release
+ * ends it (never sooner than a short minimum, so a tap is one step and a hold
+ * keeps repeating on the TV's own timer).
+ */
+@Composable
+private fun VolumeKey(
+    modifier: Modifier,
+    keyName: String,
+    vm: TvViewModel,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    var pressed by remember { mutableStateOf(false) }
+    val haptic = LocalHapticFeedback.current
+    val gesture = Modifier.pointerInput(keyName) {
+        awaitEachGesture {
+            awaitFirstDown()
+            pressed = true
+            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            vm.holdStart(keyName)
+            waitForUpOrCancellation()
+            vm.holdEnd(keyName)
+            pressed = false
+        }
+    }
+    KeySurface(modifier, pressed, null, gesture, content)
 }
 
 /**

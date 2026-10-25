@@ -138,6 +138,32 @@ class TvViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Sends a key. Safe to call from any gesture callback; order is preserved. */
+    private val holdStartedAt = HashMap<String, Long>()
+
+    /**
+     * Press-down of a key the TV only honours as a held key (volume on some
+     * sets ignores quick SHORT presses). Pair with [holdEnd].
+     */
+    fun holdStart(name: String) {
+        queue.trySend {
+            holdStartedAt[name] = System.currentTimeMillis()
+            withReconnect { connection.sendKey(name, "START_LONG") }
+        }
+    }
+
+    /**
+     * Release of [holdStart]. Waits until the key has been down at least
+     * [minHoldMs] first, so a quick tap still counts as one step.
+     */
+    fun holdEnd(name: String, minHoldMs: Long = 120L) {
+        queue.trySend {
+            val started = holdStartedAt.remove(name) ?: System.currentTimeMillis()
+            val wait = minHoldMs - (System.currentTimeMillis() - started)
+            if (wait > 0) kotlinx.coroutines.delay(wait)
+            withReconnect { connection.sendKey(name, "END_LONG") }
+        }
+    }
+
     fun key(name: String, direction: String = "SHORT") {
         queue.trySend { withReconnect { connection.sendKey(name, direction) } }
     }
