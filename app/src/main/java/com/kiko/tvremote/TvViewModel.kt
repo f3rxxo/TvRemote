@@ -272,4 +272,4 @@ class TvViewModel(app: Application) : AndroidViewModel(app) {
  * for a moment — raise it if taps still get missed, lower it if one tap jumps
  * more than one step.
  */
-const val VOLUME_MIN_HOLD_MS = 350L
+const val VOLUME_MIN_HOLD_MS = 400L
