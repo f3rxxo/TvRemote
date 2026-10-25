@@ -326,9 +326,11 @@ private fun RemoteScreen(st: UiState, vm: TvViewModel) {
 
         // Play/pause + volume (press immediately, hold to repeat)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            PressKey(Modifier.weight(1f).height(64.dp), repeat = true, onPress = { vm.key("VOLUME_DOWN") }) { Text("Vol −", fontWeight = FontWeight.Medium) }
+            // Tap = one step; hold = the TV's own key repeat (START_LONG/END_LONG),
+            // which it handles far more reliably than a stream of separate presses.
+            HoldKey(Modifier.weight(1f).height(64.dp), "VOLUME_DOWN", vm) { Text("Vol −", fontWeight = FontWeight.Medium) }
             PressKey(Modifier.weight(1f).height(64.dp), onPress = { vm.key("VOLUME_MUTE") }) { Text("Mute", fontWeight = FontWeight.Medium) }
-            PressKey(Modifier.weight(1f).height(64.dp), repeat = true, onPress = { vm.key("VOLUME_UP") }) { Text("Vol +", fontWeight = FontWeight.Medium) }
+            HoldKey(Modifier.weight(1f).height(64.dp), "VOLUME_UP", vm) { Text("Vol +", fontWeight = FontWeight.Medium) }
         }
         PressKey(Modifier.fillMaxWidth().height(64.dp), onPress = { vm.key("MEDIA_PLAY_PAUSE") }) { Text("⏯", fontSize = 26.sp) }
 

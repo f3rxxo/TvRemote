@@ -87,6 +87,10 @@ class TvConnection(private val keyStore: KeyStore) {
     private fun openSocket(host: String, port: Int): SSLSocket {
         val plain = Socket()
         try {
+            // Key presses are tiny writes; without this Nagle's algorithm holds
+            // each one back waiting to batch it, which reads as a laggy button.
+            plain.tcpNoDelay = true
+            plain.keepAlive = true
             plain.connect(InetSocketAddress(host, port), CONNECT_TIMEOUT_MS)
             return sslContext.socketFactory.createSocket(plain, host, port, true) as SSLSocket
         } catch (e: Exception) {
