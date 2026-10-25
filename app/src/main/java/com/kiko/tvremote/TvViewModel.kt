@@ -155,7 +155,7 @@ class TvViewModel(app: Application) : AndroidViewModel(app) {
      * Release of [holdStart]. Waits until the key has been down at least
      * [minHoldMs] first, so a quick tap still counts as one step.
      */
-    fun holdEnd(name: String, minHoldMs: Long = 120L) {
+    fun holdEnd(name: String, minHoldMs: Long = VOLUME_MIN_HOLD_MS) {
         queue.trySend {
             val started = holdStartedAt.remove(name) ?: System.currentTimeMillis()
             val wait = minHoldMs - (System.currentTimeMillis() - started)
@@ -265,3 +265,11 @@ class TvViewModel(app: Application) : AndroidViewModel(app) {
         queue.close()
     }
 }
+
+/**
+ * How long a volume key stays "held" at minimum, even for a quick tap. This TV
+ * ignores a press that ends almost as soon as it starts, but honours one held
+ * for a moment — raise it if taps still get missed, lower it if one tap jumps
+ * more than one step.
+ */
+const val VOLUME_MIN_HOLD_MS = 350L
